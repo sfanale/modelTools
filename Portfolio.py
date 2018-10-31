@@ -12,33 +12,43 @@ class Portfolio:
 
     def add(self, price):
         if price['contractsymbol'] not in self.holdings:
-            self.holdings[price['contractsymbol']] =[{'date': price['pricedate'], 'strike': price['strike'],
+            self.holdings[price['contractsymbol']] = {'info': [{'date': price['pricedate'], 'strike': price['strike'],
                                                'price': price['lastprice'], 'expiry': price['expiration'],
-                                               'type': price['optiontype']}]
+                                               'type': price['optiontype']}]}
         else:
-            self.holdings[price['contractsymbol']].append({'date': price['pricedate'], 'strike': price['strike'],
+            self.holdings[price['contractsymbol']]['info'].append({'date': price['pricedate'], 'strike': price['strike'],
                                                'price': price['lastprice'], 'expiry': price['expiration'],
                                                'type': price['optiontype']})
 
-    def optimize(self ):
+    def returns(self):
+        for i, stock in enumerate(self.holdings):
+            temp = sorted(self.holdings[stock]['info'], key=lambda item: item['date'])   # sort prices in contract array by date
+            prices = [temp[i]['price'] for i in range(len(temp))]
+            returns = [prices[i]/prices[i-1] -1 for i in range(1, len(prices))]
+            returns.insert(0, 1)   # adding this for the first day for now, results
+            self.holdings[stock]['returns'] = returns
+
+    def optimize(self):
         w0 = np.ones([len(self.holdings), 1]) / len(self.holdings)    # initial weights equal
         Rave = np.ones([len(self.holdings), 1])
         for key in self.holdings:     # get the length of a single contract
-            lenH = len(self.holdings[key])
+            lenH = len(self.holdings[key]['info'])
             break
         Ri = np.ones([lenH, len(self.holdings)])
-
         for i, stock in enumerate(self.holdings):
-            temp = sorted(self.holdings[stock], key=lambda item: item['date'])   # sort prices in contract array by date
+            temp = sorted(self.holdings[stock]['info'], key=lambda item: item['date'])   # sort prices in contract array by date
             prices = [temp[i]['price'] for i in range(len(temp))]
             returns = [prices[i]/prices[i-1] -1 for i in range(1, len(prices))]
             returns.insert(0, 1)   # adding this for the first day for now, results should be one less day than prices
             Ri[:, i] = returns
             Rave[i] = np.mean(returns)
-
-
         Rstar = sp.minimize(sharpe_ratio, w0, args=(Ri, Rave, self.rf), constraints={'type': 'eq', 'fun': sum_weights})
-        return Rstar
+        return Rstar, Ri
+
+
+
+
+
 
 
 
