@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.optimize as sp
-
+from functools import reduce
 
 class Portfolio:
     # This will be a general portfolio class
@@ -13,20 +13,22 @@ class Portfolio:
     def add(self, price):
         if price['contractsymbol'] not in self.holdings:
             self.holdings[price['contractsymbol']] = {'info': [{'date': price['pricedate'], 'strike': price['strike'],
-                                               'price': price['lastprice'], 'expiry': price['expiration'],
+                                               'price': price['lastprice'], 'expiry': price['expiry'],
                                                'type': price['optiontype']}]}
         else:
             self.holdings[price['contractsymbol']]['info'].append({'date': price['pricedate'], 'strike': price['strike'],
-                                               'price': price['lastprice'], 'expiry': price['expiration'],
+                                               'price': price['lastprice'], 'expiry': price['expiry'],
                                                'type': price['optiontype']})
 
     def returns(self):
         for i, stock in enumerate(self.holdings):
             temp = sorted(self.holdings[stock]['info'], key=lambda item: item['date'])   # sort prices in contract array by date
             prices = [temp[i]['price'] for i in range(len(temp))]
-            returns = [prices[i]/prices[i-1] -1 for i in range(1, len(prices))]
+            returns = [prices[i]/prices[i-1] for i in range(1, len(prices))]
             returns.insert(0, 1)   # adding this for the first day for now, results
             self.holdings[stock]['returns'] = returns
+            # this is in cumRet*start amount = final
+            self.holdings[stock]['cumulative_returns'] = reduce((lambda x, y: x*y), returns)
 
     def optimize(self):
         w0 = np.ones([len(self.holdings), 1]) / len(self.holdings)    # initial weights equal
@@ -44,14 +46,6 @@ class Portfolio:
             Rave[i] = np.mean(returns)
         Rstar = sp.minimize(sharpe_ratio, w0, args=(Ri, Rave, self.rf), constraints={'type': 'eq', 'fun': sum_weights})
         return Rstar, Ri
-
-
-
-
-
-
-
-
 
 
 
