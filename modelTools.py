@@ -1,43 +1,48 @@
 from Portfolio import Portfolio
 import numpy as np
+import json
 import matplotlib.pyplot as plt
 import requests
 from functools import reduce
 
-my_portfolio = Portfolio()
-data = requests.get("http://localhost:5000/api/options/AAPL")
-data = data.json()
-syms = [i['contractsymbol'] for i in data]
 
-# get and add each contract and its prices
-for s in syms:
-    request_string = "http://localhost:5000/api/options/detail/" + s
-    # only get and add options that havent expired?
-    response = requests.get(request_string)
-    response = response.json()
-    for price in response:
-        price['contractsymbol'] = s
+def get_one_option(ticker, my_portfolio):
+    # get all option data for one underlying asset
+    # to init a portfolio object:
+    # from Portfolio import Portfolio
+    # myport = Portfolio()
+
+    data = requests.get("http://100.26.29.52:5000/api/options/all/"+ticker)
+    data = data.json()
+    for price in data:
+        my_portfolio.add(price)
+
+
+def get_one_stock(ticker, my_portfolio):
+    # get price data for one asset
+
+    data = requests.get("http://100.26.29.52:5000/api/quotes/" + ticker)
+    data = data.json()
+    for price in data:
         my_portfolio.add(price)
 
 # get returns
-my_portfolio.returns()
-
-# contracts sorted by cumulative returns
-res = sorted(my_portfolio.holdings, key=lambda item: my_portfolio.holdings[item]['cumulative_returns'], reverse=True)
+# my_portfolio.returns()
 
 
+def sort_by_cumulative_returns(my_portfolio):
+    # contracts sorted by cumulative returns
+    # returns sorted list of contract names, these can be used to grab items from portfolio holdings dictionary
+
+    res = sorted(my_portfolio.holdings, key=lambda item: my_portfolio.holdings[item]['cumulative_returns'], reverse=True)
+    return res
 
 
-"""
-# this is the maximum length for the price history
-# for now ill only use the contracts that havent expired yet
-max_length = max([len(my_portfolio.holdings[i]['info']) for j, i in enumerate(my_portfolio.holdings)])
+def get_all_options(my_portfolio):
+    # gets and adds all option data to a portfolio object
+    # this will take some time
 
-
-"""
-
-my_portfolio = Portfolio()
-SP500 = ['DB','AAPL', 'ABT', 'ABBV', 'ACN', 'ACE', 'ADBE', 'ADT', 'AAP', 'AES', 'AET', 'AFL',
+    SP500 = ['DB','AAPL', 'ABT', 'ABBV', 'ACN', 'ACE', 'ADBE', 'ADT', 'AAP', 'AES', 'AET', 'AFL',
 'AMG', 'A', 'GAS', 'ARE', 'APD', 'AKAM', 'AA', 'AGN', 'ALXN', 'ALLE', 'ADS', 'ALL', 'ALTR', 'MO', 'AMZN', 'AEE', 'AAL',
          'AEP', 'AXP', 'AIG', 'AMT', 'AMP', 'ABC', 'AME', 'AMGN', 'APH', 'APC', 'ADI', 'AON', 'APA', 'AIV', 'AMAT',
          'ADM', 'AIZ', 'T', 'ADSK', 'ADP', 'AN', 'AZO', 'AVGO', 'AVB', 'AVY', 'BHI', 'BLL', 'BAC', 'BK', 'BCR',
@@ -71,13 +76,15 @@ SP500 = ['DB','AAPL', 'ABT', 'ABBV', 'ACN', 'ACE', 'ADBE', 'ADT', 'AAP', 'AES', 
          'VIAB', 'V', 'VNO', 'VMC', 'WMT', 'WBA', 'DIS', 'WM', 'WAT', 'ANTM', 'WFC', 'WDC', 'WU', 'WY', 'WHR', 'WFM',
          'WMB', 'WEC', 'WYN', 'WYNN', 'XEL', 'XRX', 'XLNX', 'XL', 'XYL', 'YHOO', 'YUM', 'ZBH', 'ZION', 'ZTS', 'IVV',
          'IJR', 'IYE', 'IYF', 'IYJ', 'IYK', 'IYM', 'IYZ', 'IYW']
-
-for stock in SP500:
-    try:
-        data = requests.get("http://localhost:5000/api/options/"+stock)
-        data = data.json()
-        for row in data:
-            my_portfolio.add(row)
-    except KeyError:
-        print(stock)
-        print(data)
+    for stock in SP500:
+        try:
+            data = requests.get("http://100.26.29.52:5000/api/options/all/"+stock)
+            data = data.json()
+            for row in data:
+                my_portfolio.add(row)
+        except KeyError:
+            print(stock)
+            print(data)
+        except json.decoder.JSONDecodeError:
+            print(stock)
+            print(data)
