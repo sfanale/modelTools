@@ -6,7 +6,7 @@ from datetime import datetime
 class Portfolio:
     # This will be a general portfolio class
     # price data will be read in out of order, need to format it into
-    # holdings = {  SYMBOL-EXPIRY-ID : { price data 1, price data 2 } }
+
     def __init__(self):
         self.holdings = {}
         self.rf = .5
@@ -25,11 +25,12 @@ class Portfolio:
                                                                     'strike': price['strike'], 'price': price['lastprice'],
                                                                     'bid': price['bid'], 'ask': price['ask'],
                                                                     'expiry': price['expiry'], 'type': price['optiontype']}]
-                                                          , 'type': 'option'}
+                                                          , 'type': 'option', 'prices': {datetime.fromtimestamp(float(price['pricedate'])).date(): price['lastprice']}}
             else:
                 self.holdings[price['contractsymbol']]['info'].append({'date': price['pricedate'], 'strike': price['strike'],
                                                    'price': price['lastprice'], 'bid': price['bid'], 'ask': price['ask'], 'expiry': price['expiry'],
                                                    'type': price['optiontype']})
+                self.holdings[price['contractsymbol']]['prices'][datetime.fromtimestamp(float(price['pricedate'])).date()] = price['lastprice']
 
     def returns(self):
         for i, stock in enumerate(self.holdings):
@@ -102,6 +103,14 @@ class Portfolio:
             Rave[i] = np.mean(returns)
         Rstar = sp.minimize(sharpe_ratio, w0, args=(Ri, Rave, self.rf), constraints={'type': 'eq', 'fun': sum_weights})
         return Rstar, Ri
+
+    def find(self, ticker):
+        contracts = []
+        for k in self.holdings:
+            if k.split('1')[0] == ticker:
+                contracts.append(k)
+        return contracts
+
 
 
 
