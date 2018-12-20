@@ -34,6 +34,22 @@ def get_one_stock(ticker, my_portfolio):
 # my_portfolio.returns()
 
 
+def get_all_dowjones(my_portfolio):
+    DJ = ["AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "XOM", "GS", "HD", "IBM", "INTC", "JNJ",
+          "JPM", "MCD", "MRK", "MSFT", "NKE", "PFE", "PG", "TRV", "UNH", "UTX", "VZ", "V", "WMT", "WBA", "DIS"]
+
+    for i, ticker in enumerate(DJ):
+        data = requests.get("http://100.26.29.52:5000/api/quotes/" + ticker)
+        data = data.json()
+        for price in data:
+            my_portfolio.add(price)
+        print(round(100*((i+.5)/28),1),'%')
+        data = requests.get("http://100.26.29.52:5000/api/options/all/" + ticker)
+        data = data.json()
+        for price in data:
+            my_portfolio.add(price)
+        print(round(100*((i+1)/28),1), "%")
+
 def sort_by_cumulative_returns(my_portfolio):
     # contracts sorted by cumulative returns
     # returns sorted list of contract names, these can be used to grab items from portfolio holdings dictionary
@@ -229,15 +245,15 @@ def pricing_model(myport):
              'WFM',
              'WMB', 'WEC', 'WYN', 'WYNN', 'XEL', 'XRX', 'XLNX', 'XL', 'XYL', 'YHOO', 'YUM', 'ZBH', 'ZION', 'ZTS', 'IVV',
              'IJR', 'IYE', 'IYF', 'IYJ', 'IYK', 'IYM', 'IYZ', 'IYW']
-
+    DJ = ["AXP", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "XOM", "GS", "HD", "IBM", "INTC", "JNJ",
+          "JPM", "MCD", "MRK", "MSFT", "NKE", "PFE", "PG", "TRV", "UNH", "UTX", "VZ", "V", "WMT", "WBA", "DIS"]
     calls = []  # returns, underlying returns, in/out%, days til expiry, constant 1
     puts = []
-
-    for ticker in SP500:
+    L = ['AAPL']
+    for ticker in L:
         try:
             contracts = myport.find(ticker)
             dates = list(myport.holdings[ticker]['returns'].keys())
-            #contracts = list(myport.holdings.keys())
             for date in dates:
                 for c in contracts:
                     if c == ticker:
@@ -250,7 +266,7 @@ def pricing_model(myport):
                                 d2 = datetime.fromtimestamp(float(myport.holdings[c]['info'][0]['expiry'])).date()
                                 d1 = datetime.fromtimestamp(float(myport.holdings[c]['info'][0]['date'])).date()
                                 option_returns = 100 * (myport.holdings[c]['returns'][date]-1)
-                                # option_returns = 100*(myport.holdings[c]['calcreturns'][date]-1)
+                                #option_returns = 100*(myport.holdings[c]['calcreturns'][date]-1)
                                 if (d2 - d1).days > 0:
                                     days_til_expiry = np.log((d2 - d1).days)
                                     calls.append([option_returns, underlying_returns, percent_ITM, days_til_expiry, 1])
@@ -261,10 +277,10 @@ def pricing_model(myport):
                                 d2 = datetime.fromtimestamp(float(myport.holdings[c]['info'][0]['expiry'])).date()
                                 d1 = datetime.fromtimestamp(float(myport.holdings[c]['info'][0]['date'])).date()
                                 option_returns = 100 * (myport.holdings[c]['returns'][date] - 1)
-                                # option_returns = 100*(myport.holdings[c]['calcreturns'][date]-1)
+                                #option_returns = 100*(myport.holdings[c]['calcreturns'][date]-1)
                                 if (d2 - d1).days >0:
                                     days_til_expiry = np.log((d2 - d1).days)
-                                    puts.append([option_returns, underlying_returns, percent_ITM, days_til_expiry, 1])
+                                    puts.append([option_returns,percent_ITM, underlying_returns, days_til_expiry, 1])
                         except KeyError:
                             # this means there isnt a price for that date
                             continue
@@ -282,4 +298,5 @@ def pricing_model(myport):
     results = smf.OLS(puts[:,0], puts[:,1:]).fit()
     print("Puts")
     print(results.summary())
+    return calls, puts
 

@@ -33,28 +33,35 @@ class Portfolio:
                 self.holdings[price['contractsymbol']]['prices'][datetime.fromtimestamp(float(price['pricedate'])).date()] = price['lastprice']
 
     def returns(self):
-        for i, stock in enumerate(self.holdings):
+        for stock in self.holdings:
             if self.holdings[stock]['type'] is 'option':
-                temp = sorted(self.holdings[stock]['info'], key=lambda item: item['date'])   # sort prices in contract array by date
-                prices = [temp[i]['price'] for i in range(len(temp))]
-                calcprices = [round((temp[i]['ask']+temp[i]['bid'])/2,4) for i in range(1,len(temp))]
+                c = self.holdings[stock]
+                dates = sorted(list(c['prices'].keys()))   # sort prices in contract array by date
+                prices = [c['prices'][d] for d in dates]
+                '''
+                calcprices = [round((['ask']+temp[i]['bid'])/2, 4) for i in range(len(temp))]
                 for p in range(len(calcprices)):
                     if calcprices[p] == 0:
-                        calcprices[p] = calcprices[p-1] # if any prices are zero set them equal to the day before
+                        calcprices[p] = prices[p]  # if any prices are zero set them equal to the day before
+               
+                print(calcprices)
+                '''
                 returns = [prices[i]/prices[i-1] for i in range(1, len(prices))]
                 returns.insert(0, 1)   # adding this for the first day for now, results
-                calcreturns = [calcprices[i]/calcprices[i-1] for i in range(1,len(calcprices))]
-                calcreturns.insert(0,1)
-                res = {datetime.fromtimestamp(float(temp[i]['date'])).date():returns[i] for i in range(len(returns))}
-                calcrets = {datetime.fromtimestamp(float(temp[i]['date'])).date(): calcreturns[i] for i in range(len(calcreturns))}
+                #calcreturns = [calcprices[i]/calcprices[i-1] for i in range(1,len(calcprices))]
+                #calcreturns.insert(0, 1)
+                res = {dates[i]: returns[i] for i in range(len(returns))}
+                #calcrets = {datetime.fromtimestamp(float(temp[i]['date'])).date(): calcreturns[i] for i in range(len(calcreturns))}
                 self.holdings[stock]['returns'] = res
-                self.holdings[stock]['calcreturns'] = calcrets
+                #self.holdings[stock]['calcreturns'] = calcrets
                 # this is in cumRet*start amount = final
                 self.holdings[stock]['cumulative_returns'] = reduce((lambda x, y: x*y), returns)
-            if self.holdings[stock]['type'] is 'stock':
+
+            elif self.holdings[stock]['type'] is 'stock':
                 dates = list(self.holdings[stock]['prices'].keys())
                 prices = list(self.holdings[stock]['prices'].values())
-                returns = {dates[i]: prices[i]/prices[i-1] for i in range(1, len(dates))}
+                returns = {dates[i]: prices[i]/prices[i-1] for i in range(1,len(dates))}
+                returns[dates[0]] = 1
                 self.holdings[stock]['returns'] = returns
                 self.holdings[stock]['cumulative_returns'] = reduce((lambda x, y: x * y), returns.values())
 
@@ -84,7 +91,7 @@ class Portfolio:
         if self.holdings[stock]['type'] is 'stock':
             dates = self.holdings[stock]['prices'].keys()
             prices = self.holdings[stock]['prices'].values()
-            returns = {dates[i]: prices[i] / prices[i - 1] for i in range(1, len(dates))}
+            returns = {dates[i]: prices[i+1] / prices[i] for i in range(len(dates))}
             self.holdings[stock]['returns'] = returns
 
     def optimize(self):
