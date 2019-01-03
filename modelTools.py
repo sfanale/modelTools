@@ -16,7 +16,7 @@ def get_one_option(ticker, my_portfolio):
     # from Portfolio import Portfolio
     # myport = Portfolio()
 
-    data = requests.get("http://100.26.29.52:5000/api/options/all/"+ticker)
+    data = requests.get("http://54.91.145.82:5000/api/options/all/"+ticker)
     data = data.json()
     for price in data:
         my_portfolio.add(price)
@@ -25,7 +25,7 @@ def get_one_option(ticker, my_portfolio):
 def get_one_stock(ticker, my_portfolio):
     # get price data for one asset
 
-    data = requests.get("http://100.26.29.52:5000/api/quotes/" + ticker)
+    data = requests.get("http://54.91.145.82:5000/api/quotes/" + ticker)
     data = data.json()
     for price in data:
         my_portfolio.add(price)
@@ -39,12 +39,12 @@ def get_all_dowjones(my_portfolio):
           "JPM", "MCD", "MRK", "MSFT", "NKE", "PFE", "PG", "TRV", "UNH", "UTX", "VZ", "V", "WMT", "WBA", "DIS"]
 
     for i, ticker in enumerate(DJ):
-        data = requests.get("http://100.26.29.52:5000/api/quotes/" + ticker)
+        data = requests.get("http://54.91.145.82:5000/api/quotes/" + ticker)
         data = data.json()
         for price in data:
             my_portfolio.add(price)
         print(round(100*((i+.5)/28),1),'%')
-        data = requests.get("http://100.26.29.52:5000/api/options/all/" + ticker)
+        data = requests.get("http://54.91.145.82:5000/api/options/all/" + ticker)
         data = data.json()
         for price in data:
             my_portfolio.add(price)
@@ -104,7 +104,7 @@ def get_all_stocks(my_portfolio):
              'IJR', 'IYE', 'IYF', 'IYJ', 'IYK', 'IYM', 'IYZ', 'IYW']
     for stock in SP500:
         try:
-            data = requests.get("http://100.26.29.52:5000/api/quotes/" + stock)
+            data = requests.get("http://54.91.145.82:5000/api/quotes/" + stock)
             data = data.json()
             for row in data:
                 my_portfolio.add(row)
@@ -120,7 +120,7 @@ def get_all_options(my_portfolio):
     # gets and adds all option data to a portfolio object
     # this will take some time
 
-        data = requests.get("http://0.0.0.0:5000/api/options/all/*")
+        data = requests.get("http://54.91.145.82:5000/api/options/all/*")
         data = data.json()
         for row in data:
             my_portfolio.add(row)
@@ -250,7 +250,7 @@ def pricing_model(myport):
     calls = []  # returns, underlying returns, in/out%, days til expiry, constant 1
     puts = []
     L = ['AAPL']
-    for ticker in L:
+    for ticker in DJ:
         try:
             contracts = myport.find(ticker)
             dates = list(myport.holdings[ticker]['returns'].keys())
@@ -260,27 +260,27 @@ def pricing_model(myport):
                         continue
                     else:
                         try:
-                            if myport.holdings[c]['info'][0]['type'] == 'call':
-                                percent_ITM = 100 * ((myport.holdings[c]['prices'][date] / myport.holdings[c]['info'][0]['strike']) - 1)
+                            if myport.holdings[c]['info'][date]['type'] == 'call':
+                                percent_ITM = 100 * ((myport.holdings[c]['prices'][date] / myport.holdings[c]['info'][date]['strike']) - 1)
                                 underlying_returns = 100 * (myport.holdings[ticker]['returns'][date]-1)
-                                d2 = datetime.fromtimestamp(float(myport.holdings[c]['info'][0]['expiry'])).date()
-                                d1 = datetime.fromtimestamp(float(myport.holdings[c]['info'][0]['date'])).date()
-                                option_returns = 100 * (myport.holdings[c]['returns'][date]-1)
-                                #option_returns = 100*(myport.holdings[c]['calcreturns'][date]-1)
-                                if (d2 - d1).days > 0:
-                                    days_til_expiry = np.log((d2 - d1).days)
+                                d2 = datetime.fromtimestamp(float(myport.holdings[c]['info'][date]['expiry'])).date()
+                                d1 = date
+                                #option_returns = 100 * (myport.holdings[c]['returns'][date]-1)
+                                option_returns = 100*(myport.holdings[c]['calcreturns'][date]-1)
+                                if (d2 - d1).days > 0 and len(myport.holdings[c]['returns']) > 10:
+                                    days_til_expiry = 1/((d2 - d1).days)
                                     calls.append([option_returns, underlying_returns, percent_ITM, days_til_expiry, 1])
 
-                            elif myport.holdings[c]['info'][0]['type'] == 'put':
-                                percent_ITM = 100 * (1 - (myport.holdings[c]['prices'][date] / myport.holdings[c]['info'][0]['strike']))
+                            elif myport.holdings[c]['info'][date]['type'] == 'put':
+                                percent_ITM = 100 * (1 - (myport.holdings[c]['prices'][date] / myport.holdings[c]['info'][date]['strike']))
                                 underlying_returns = 100 * (myport.holdings[ticker]['returns'][date]-1)
-                                d2 = datetime.fromtimestamp(float(myport.holdings[c]['info'][0]['expiry'])).date()
-                                d1 = datetime.fromtimestamp(float(myport.holdings[c]['info'][0]['date'])).date()
-                                option_returns = 100 * (myport.holdings[c]['returns'][date] - 1)
-                                #option_returns = 100*(myport.holdings[c]['calcreturns'][date]-1)
-                                if (d2 - d1).days >0:
-                                    days_til_expiry = np.log((d2 - d1).days)
-                                    puts.append([option_returns,percent_ITM, underlying_returns, days_til_expiry, 1])
+                                d2 = datetime.fromtimestamp(float(myport.holdings[c]['info'][date]['expiry'])).date()
+                                d1 = date
+                                #option_returns = 100 * (myport.holdings[c]['returns'][date] - 1)
+                                option_returns = 100*(myport.holdings[c]['calcreturns'][date]-1)
+                                if (d2 - d1).days >0 and len(myport.holdings[c]['returns']) > 10:
+                                    days_til_expiry = 1/((d2 - d1).days)
+                                    puts.append([option_returns, underlying_returns, percent_ITM, days_til_expiry, 1])
                         except KeyError:
                             # this means there isnt a price for that date
                             continue
