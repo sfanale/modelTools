@@ -16,7 +16,7 @@ def get_one_option(ticker, my_portfolio):
     # from Portfolio import Portfolio
     # myport = Portfolio()
 
-    data = requests.get("http://54.91.145.82:5000/api/options/all/"+ticker)
+    data = requests.get("http://data.fanaleresearch.com:5000/api/options/all/"+ticker)
     data = data.json()
     for price in data:
         my_portfolio.add(price)
@@ -25,7 +25,7 @@ def get_one_option(ticker, my_portfolio):
 def get_one_stock(ticker, my_portfolio):
     # get price data for one asset
 
-    data = requests.get("http://54.91.145.82:5000/api/quotes/" + ticker)
+    data = requests.get("http://data.fanaleresearch.com:5000/api/quotes/" + ticker)
     data = data.json()
     for price in data:
         my_portfolio.add(price)
@@ -39,12 +39,12 @@ def get_all_dowjones(my_portfolio):
           "JPM", "MCD", "MRK", "MSFT", "NKE", "PFE", "PG", "TRV", "UNH", "UTX", "VZ", "V", "WMT", "WBA", "DIS"]
 
     for i, ticker in enumerate(DJ):
-        data = requests.get("http://54.91.145.82:5000/api/quotes/" + ticker)
+        data = requests.get("http://data.fanaleresearch.com:5000/api/quotes/" + ticker)
         data = data.json()
         for price in data:
             my_portfolio.add(price)
         print(round(100*((i+.5)/28),1),'%')
-        data = requests.get("http://54.91.145.82:5000/api/options/all/" + ticker)
+        data = requests.get("http://data.fanaleresearch.com:5000/api/options/all/" + ticker)
         data = data.json()
         for price in data:
             my_portfolio.add(price)
@@ -104,7 +104,7 @@ def get_all_stocks(my_portfolio):
              'IJR', 'IYE', 'IYF', 'IYJ', 'IYK', 'IYM', 'IYZ', 'IYW']
     for stock in SP500:
         try:
-            data = requests.get("http://54.91.145.82:5000/api/quotes/" + stock)
+            data = requests.get("http://data.fanaleresearch.com:5000/api/quotes/" + stock)
             data = data.json()
             for row in data:
                 my_portfolio.add(row)
@@ -120,7 +120,7 @@ def get_all_options(my_portfolio):
     # gets and adds all option data to a portfolio object
     # this will take some time
 
-        data = requests.get("http://54.91.145.82:5000/api/options/all/*")
+        data = requests.get("http://data.fanaleresearch.com:5000/api/options/all/*")
         data = data.json()
         for row in data:
             my_portfolio.add(row)
@@ -300,3 +300,15 @@ def pricing_model(myport):
     print(results.summary())
     return calls, puts
 
+
+def contract_screen(myport, start_date, end_date):
+    # enter in start and end as datetimes
+    results = {}
+    for contract_name in myport.holdings:
+        contract = myport.holdings[contract_name]
+        dates = list(contract['info'].keys())
+        dates.sort()
+        expiry = datetime.fromtimestamp(float(contract['info'][dates[0]]['expiry'])).date()
+        if dates[0] < start_date and expiry > end_date:
+            results[contract_name] = contract
+    return results
