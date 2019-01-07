@@ -21,7 +21,6 @@ class Portfolio:
                                                                 price['close']}, 'type': 'stock'}
             else:
                 self.holdings[price['symbol']]['prices'][datetime.fromtimestamp(float(price['pricedate'])).date()] = price['close']
-
         else:  # asset type is option
             if price['contractsymbol'] not in self.holdings:
                 self.holdings[price['contractsymbol']] = {'info':
@@ -97,23 +96,24 @@ class Portfolio:
             returns = {dates[i]: prices[i+1] / prices[i] for i in range(len(dates))}
             self.holdings[stock]['returns'] = returns
 
-    def optimize(self, start, end):
+    def optimize(self, start_opt, end_expiry, end_opt):
         # todo : read in selected assets not all
-        contracts = modelTools.contract_screen(self,start,end)
-        # todo : add end date of optimization range
+        contracts = modelTools.contract_screen(self, start_opt, end_expiry)
         w0 = np.ones([len(contracts), 1]) / len(contracts)    # initial weights equal
         Rave = np.ones([len(contracts), 1])
-        for key in contracts:     # get the length of a single contract
-            lenH = len(contracts[key]['info'])
-            break
-        Ri = np.ones([lenH, len(contracts)])
+        Ri = []
+        lenH = 0 # placeholder
         for i, stock in enumerate(contracts):
-            returns = list(contracts[stock]['calcreturns'].values())
+            returns = get_returns_date_range(contracts[stock]['calcreturns'], start_opt, end_opt)
+            if i == 0:
+                lenH = len(returns)
             if len(returns) == lenH:
-                Ri[:, i] = returns
+                Ri.append(returns)
                 Rave[i] = np.mean(returns)
             else:
                 print(stock)
+        Ri = np.asarray(Ri)
+
         Rstar = sp.minimize(sharpe_ratio, w0, args=(Ri, Rave, self.rf), constraints={'type': 'eq', 'fun': sum_weights})
         self.weights = Rstar['x']
 
@@ -126,20 +126,45 @@ class Portfolio:
                 contracts.append(k)
         return contracts
 
-    def run(self, start, end):
+    def run(self, start_opt, end_opt, end_expiry, start_run, end_run):
         # start date is
         self.returns()
-        Rstar, Ri, contracts = self.optimize(start, end)
-        daily_tot =[]
+        Rstar, Ri, contracts = self.optimize(start_opt, end_expiry, end_opt)
+        Ri =[]
+        # overwrite Ri with correct returns
+        for stock in contracts:
+            Ri.append(get_returns_date_range(contracts[stock]['calcreturns'], start_run, end_run))
+        daily_tot = []    # sum of daily value ( weights * return, multiple by invested amount to get true value)
+        daily_values = []    # list of daily values, multiply by starting amount to get true value
+        Ri = np.asarray(Ri).transpose()
+        # this makes it into days X contracts and base 1 returns
         for i, day in enumerate(Ri):
-            daily_tot.append(reduce((lambda x, y: x+y), day*Rstar))
-        total_returns = reduce((lambda x, y: x*y), daily_tot)
-        return total_returns, daily_tot
+            if i == 0:   # if first day, use weights
+                daily_tot.append(reduce((lambda x, y: x+y), day*Rstar))
+                daily_values.append(day*Rstar)
+            else: # use values of previous day
+                daily_tot.append(reduce((lambda x, y: x + y), day * daily_values[i-1]))
+                daily_values.append(day * daily_values[i-1])
+        total_returns = daily_tot[-1]
+        return total_returns, daily_tot, daily_values
 
 
 def sharpe_ratio(w,Ri, Rave, Rf):
-    return np.sqrt(np.dot(np.dot(np.transpose(w), np.cov(Ri, rowvar=False)), w)) / (np.dot(np.transpose(w), Rave) - Rf)
+    return np.sqrt(np.dot(np.dot(np.transpose(w), np.cov(Ri)), w)) / (np.dot(np.transpose(w), Rave) - Rf)
 
 
 def sum_weights(w):
     return np.sum(w)-1
+
+
+def get_returns_date_range(returns_dict, start, end):
+    available_dates =list(returns_dict.keys())
+    dates_in_range = []
+    returns = []
+    for date in available_dates:
+        if date > start and date < end:
+            dates_in_range.append(date)
+    dates_in_range.sort()
+    for date in dates_in_range:
+        returns.append(returns_dict[date])
+    return returns
