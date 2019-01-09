@@ -2,6 +2,7 @@ from Portfolio import Portfolio
 import numpy as np
 import json
 from datetime import datetime
+import datetime as dt
 import matplotlib.pyplot as plt
 import requests
 from scipy import stats
@@ -17,6 +18,18 @@ def get_one_option(ticker, my_portfolio):
     # myport = Portfolio()
 
     data = requests.get("http://data.fanaleresearch.com/api/options/all/"+ticker)
+    data = data.json()
+    for price in data:
+        my_portfolio.add(price)
+
+
+def get_one_contract(contract, my_portfolio):
+    # get all option data for one underlying asset
+    # to init a portfolio object:
+    # from Portfolio import Portfolio
+    # myport = Portfolio()
+
+    data = requests.get("http://data.fanaleresearch.com/api/options/detail/"+contract)
     data = data.json()
     for price in data:
         my_portfolio.add(price)

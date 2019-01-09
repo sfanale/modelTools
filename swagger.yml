@@ -1,0 +1,66 @@
+swagger: "2.0"
+info:
+  description: This is the swagger file that describes the functionality the modelling api.
+  version: "1.0.0"
+  title: Fanale Research Models Api
+consumes:
+  - application/json
+produces:
+  - application/json
+
+basePath: /api
+
+# Paths supported by the server application
+paths:
+  /model/run/{info}:
+    get:
+      operationId: model_api.parse_model_params
+      tags:
+        - model
+      summary: something
+      description: something
+      parameters:
+        - name: info
+          in: path
+          description: something
+          type: string
+          required: True
+      responses:
+        200:
+          description: success
+          schema:
+            type: array
+            items:
+              properties:
+                info:
+                  type: string
+
+
+
+
+  /model/returns/{ticker}:
+      get:
+        operationId: model_api.get_returns
+        tags:
+          - model
+        summary: Get list of contracts for one stock
+        description: Get all contracts for one stock
+        parameters:
+          - name: ticker
+            in: path
+            description: Stock ticker symbol for asset
+            type: string
+            required: True
+        responses:
+          200:
+            description: Successfully found stock
+            schema:
+              type: array
+              items:
+                properties:
+                  symbol:
+                    type: string
+                  contractsymbol:
+                    type: string
+                  timestamp:
+                    type: string

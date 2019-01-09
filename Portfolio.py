@@ -2,6 +2,7 @@ import numpy as np
 import scipy.optimize as sp
 from functools import reduce
 from datetime import datetime
+import datetime as dt
 
 import modelTools
 
@@ -126,27 +127,45 @@ class Portfolio:
                 contracts.append(k)
         return contracts
 
-    def run(self, start_opt, end_opt, end_expiry, start_run, end_run):
-        # start date is
+    def run(self, start_opt, opt_time_range, end_expiry, reopt_freq):
         self.returns()
-        Rstar, Ri, contracts = self.optimize(start_opt, end_expiry, end_opt)
-        Ri =[]
-        # overwrite Ri with correct returns
-        for stock in contracts:
-            Ri.append(get_returns_date_range(contracts[stock]['calcreturns'], start_run, end_run))
-        daily_tot = []    # sum of daily value ( weights * return, multiple by invested amount to get true value)
-        daily_values = []    # list of daily values, multiply by starting amount to get true value
-        Ri = np.asarray(Ri).transpose()
-        # this makes it into days X contracts and base 1 returns
-        for i, day in enumerate(Ri):
-            if i == 0:   # if first day, use weights
-                daily_tot.append(reduce((lambda x, y: x+y), day*Rstar))
-                daily_values.append(day*Rstar)
-            else: # use values of previous day
-                daily_tot.append(reduce((lambda x, y: x + y), day * daily_values[i-1]))
-                daily_values.append(day * daily_values[i-1])
-        total_returns = daily_tot[-1]
-        return total_returns, daily_tot, daily_values
+        start_run = start_opt + dt.timedelta(days=opt_time_range*7)
+        end_run = start_run + dt.timedelta(days=reopt_freq*7)
+        end_opt = start_opt + dt.timedelta(days=opt_time_range*7)
+        result_dict = {}
+        while end_run < datetime.now().date():
+            print(start_opt)
+            print(end_opt)
+            print(end_expiry)
+            Rstar, Ri, contracts = self.optimize(start_opt, end_expiry, end_opt)
+            print(start_run)
+            print(end_run)
+            Ri =[]
+            starting_value = 1
+            # overwrite Ri with correct returns
+            for stock in contracts:
+                Ri.append(get_returns_date_range(contracts[stock]['calcreturns'], start_run, end_run))
+            daily_tot = []    # sum of daily value ( weights * return, multiple by invested amount to get true value)
+            daily_values = []    # list of daily values, multiply by starting amount to get true value
+            Ri = np.asarray(Ri).transpose()
+            # this makes it into days X contracts and base 1 returns
+            for i, day in enumerate(Ri):
+                if i == 0:   # if first day, use weights
+                    daily_tot.append(reduce((lambda x, y: x+y), day*Rstar*starting_value))
+                    daily_values.append((day*Rstar).tolist())
+                else: # use values of previous day
+                    daily_tot.append(reduce((lambda x, y: x + y), day * daily_values[i-1]))
+                    daily_values.append((day * daily_values[i-1]).tolist())
+            total_returns = daily_tot[-1]
+            starting_value = total_returns
+            result_dict[start_run.strftime("%Y-%m-%d")] = {'total': total_returns, 'daily_tot': daily_tot,
+                                                           'daily_values': daily_values, 'weights': Rstar.tolist(),
+                                                           'contracts': list(contracts.keys())}
+            start_opt = start_opt + dt.timedelta(days=reopt_freq*7)
+            start_run = start_opt + dt.timedelta(days=opt_time_range * 7)
+            end_run = start_run + dt.timedelta(days=reopt_freq * 7)
+            end_opt = start_opt + dt.timedelta(days=opt_time_range * 7)
+        return result_dict
 
 
 def sharpe_ratio(w,Ri, Rave, Rf):
