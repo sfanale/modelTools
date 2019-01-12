@@ -65,6 +65,7 @@ def run_model(asset_list, returns_style='calc', optimization_style='sharpe', opt
         result_dict = myport.run(opt_window_start, opt_time_range,
                                            opt_window_start + datetime.timedelta(days=7*expiry_range),
                                            reopt_freq)
+
     return flask.jsonify(result_dict)
 
 

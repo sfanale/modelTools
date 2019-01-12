@@ -97,24 +97,29 @@ class Portfolio:
             returns = {dates[i]: prices[i+1] / prices[i] for i in range(len(dates))}
             self.holdings[stock]['returns'] = returns
 
-    def optimize(self, start_opt, end_expiry, end_opt):
+    def optimize(self, start_opt, end_expiry, end_opt, start_opt_non_var):
         # todo : read in selected assets not all
         contracts = modelTools.contract_screen(self, start_opt, end_expiry)
-        w0 = np.ones([len(contracts), 1]) / len(contracts)    # initial weights equal
-        Rave = np.ones([len(contracts), 1])
+        bad_contracts = []
+        Rave = []
         Ri = []
         lenH = 0 # placeholder
         for i, stock in enumerate(contracts):
-            returns = get_returns_date_range(contracts[stock]['calcreturns'], start_opt, end_opt)
+            returns = get_returns_date_range(contracts[stock]['calcreturns'], start_opt, end_opt)[0]
             if i == 0:
                 lenH = len(returns)
             if len(returns) == lenH:
                 Ri.append(returns)
-                Rave[i] = np.mean(returns)
+                Rave.append(np.mean(returns))
             else:
                 print(stock)
+                bad_contracts.append(stock)
+                # remove this contract from list
+        for item in bad_contracts:
+            del contracts[item]
         Ri = np.asarray(Ri)
-
+        Rave = np.asarray(Rave)
+        w0 = np.ones([len(Ri), 1]) / len(Ri)  # initial weights equal
         Rstar = sp.minimize(sharpe_ratio, w0, args=(Ri, Rave, self.rf), constraints={'type': 'eq', 'fun': sum_weights})
         self.weights = Rstar['x']
 
@@ -130,37 +135,44 @@ class Portfolio:
     def run(self, start_opt, opt_time_range, end_expiry, reopt_freq):
         self.returns()
         start_run = start_opt + dt.timedelta(days=opt_time_range*7)
+        start_opt_non_var = start_opt
         end_run = start_run + dt.timedelta(days=reopt_freq*7)
         end_opt = start_opt + dt.timedelta(days=opt_time_range*7)
-        result_dict = {}
+        result_dict = []
+        starting_value = 1
         while end_run < datetime.now().date():
             print(start_opt)
             print(end_opt)
             print(end_expiry)
-            Rstar, Ri, contracts = self.optimize(start_opt, end_expiry, end_opt)
+            Rstar, _, contracts = self.optimize(start_opt, end_expiry, end_opt, start_opt_non_var)
             print(start_run)
             print(end_run)
             Ri =[]
-            starting_value = 1
+            print(starting_value)
             # overwrite Ri with correct returns
             for stock in contracts:
-                Ri.append(get_returns_date_range(contracts[stock]['calcreturns'], start_run, end_run))
+                Ri.append(get_returns_date_range(contracts[stock]['calcreturns'], start_run, end_run)[0])
+                dates = get_returns_date_range(contracts[stock]['calcreturns'], start_run, end_run)[1]
             daily_tot = []    # sum of daily value ( weights * return, multiple by invested amount to get true value)
             daily_values = []    # list of daily values, multiply by starting amount to get true value
             Ri = np.asarray(Ri).transpose()
             # this makes it into days X contracts and base 1 returns
             for i, day in enumerate(Ri):
-                if i == 0:   # if first day, use weights
-                    daily_tot.append(reduce((lambda x, y: x+y), day*Rstar*starting_value))
-                    daily_values.append((day*Rstar).tolist())
-                else: # use values of previous day
-                    daily_tot.append(reduce((lambda x, y: x + y), day * daily_values[i-1]))
-                    daily_values.append((day * daily_values[i-1]).tolist())
+                try:
+                    if i == 0:   # if first day, use weights
+                        daily_tot.append(reduce((lambda x, y: x+y), day*Rstar*starting_value))
+                        daily_values.append((day*Rstar).tolist())
+                    else: # use values of previous day
+                        daily_tot.append(reduce((lambda x, y: x + y), day * daily_values[i-1]))
+                        daily_values.append((day * daily_values[i-1]).tolist())
+                except ValueError:
+                    print(day)
+                    print(Ri)
             total_returns = daily_tot[-1]
             starting_value = total_returns
-            result_dict[start_run.strftime("%Y-%m-%d")] = {'total': total_returns, 'daily_tot': daily_tot,
+            result_dict.append({'start_date':start_run, 'dates': dates, 'total': total_returns, 'daily_tot': daily_tot,
                                                            'daily_values': daily_values, 'weights': Rstar.tolist(),
-                                                           'contracts': list(contracts.keys())}
+                                                           'contracts': list(contracts.keys())})
             start_opt = start_opt + dt.timedelta(days=reopt_freq*7)
             start_run = start_opt + dt.timedelta(days=opt_time_range * 7)
             end_run = start_run + dt.timedelta(days=reopt_freq * 7)
@@ -186,4 +198,4 @@ def get_returns_date_range(returns_dict, start, end):
     dates_in_range.sort()
     for date in dates_in_range:
         returns.append(returns_dict[date])
-    return returns
+    return returns, dates_in_range
