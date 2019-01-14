@@ -97,7 +97,7 @@ class Portfolio:
             returns = {dates[i]: prices[i+1] / prices[i] for i in range(len(dates))}
             self.holdings[stock]['returns'] = returns
 
-    def optimize(self, start_opt, end_expiry, end_opt, start_opt_non_var):
+    def optimize(self, start_opt, end_expiry, end_opt, start_opt_non_var, start_run, end_run):
         # todo : read in selected assets not all
         print('optimize')
         contracts = modelTools.contract_screen(self, start_opt, end_expiry)
@@ -105,23 +105,28 @@ class Portfolio:
         Rave = []
         Ri = []
         lenH = 0 # placeholder
+        lenF = 5 # the length forwards, to weed out wrongly lengthed data before opt
         for i, stock in enumerate(contracts):
             if contracts[stock]['type'] is 'option':
                 returns = get_returns_date_range(contracts[stock]['calcreturns'], start_opt, end_opt)[0]
-            elif contracts[stock]['type'] is 'stock':
+                forward_returns = get_returns_date_range(contracts[stock]['calcreturns'], start_run, end_run)[0]
+            if contracts[stock]['type'] is 'stock':
                 returns = get_returns_date_range(contracts[stock]['returns'], start_opt, end_opt)[0]
+                forward_returns = get_returns_date_range(contracts[stock]['returns'], start_run, end_run)[0]
             if i == 0:
                 lenH = len(returns)
-            if len(returns) == lenH:
+                print(lenH)
+                lenF = len(forward_returns)
+            if len(returns) == lenH and len(forward_returns) == lenF:
                 Ri.append(returns)
                 Rave.append(np.mean(returns))
             else:
-                print(stock)
                 bad_contracts.append(stock)
                 # remove this contract from list
         for item in bad_contracts:
             del contracts[item]
         Ri = np.asarray(Ri)
+        print(len(Ri))
         Rave = np.asarray(Rave)
         w0 = np.ones([len(Ri), 1]) / len(Ri)  # initial weights equal
         Rstar = sp.minimize(sharpe_ratio, w0, args=(Ri, Rave, self.rf), constraints={'type': 'eq', 'fun': sum_weights})
@@ -148,7 +153,7 @@ class Portfolio:
             print(start_opt)
             print(end_opt)
             print(end_expiry)
-            Rstar, _, contracts = self.optimize(start_opt, end_expiry, end_opt, start_opt_non_var)
+            Rstar, _, contracts = self.optimize(start_opt, end_expiry, end_opt, start_opt_non_var, start_run, end_run)
             print(start_run)
             print(end_run)
             Ri =[]
@@ -163,6 +168,7 @@ class Portfolio:
                     dates = get_returns_date_range(contracts[stock]['returns'], start_run, end_run)[1]
             daily_tot = []    # sum of daily value ( weights * return, multiple by invested amount to get true value)
             daily_values = []    # list of daily values, multiply by starting amount to get true value
+
             Ri = np.asarray(Ri).transpose()
             # this makes it into days X contracts and base 1 returns
             for i, day in enumerate(Ri):
