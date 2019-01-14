@@ -36,12 +36,13 @@ def parse_model_params(info):
     opt_range = int(inputs[1])
     expiry_range =int(inputs[2])
     reopt_freq = int(inputs[3])
-    return run_model(asset_list, opt_time_range=opt_range, expiry_range=expiry_range, reopt_freq=reopt_freq)
+    asset_types = inputs[4]
+    return run_model(asset_list, opt_time_range=opt_range, expiry_range=expiry_range, reopt_freq=reopt_freq, asset_types=asset_types)
 
 
 
 def run_model(asset_list, returns_style='calc', optimization_style='sharpe', opt_window_start=datetime.date(2018,10,28),
-              opt_time_range=4, filter_type='expirydate', expiry_range=52, reopt_freq=2, leverage=1):
+              opt_time_range=4, filter_type='expirydate', expiry_range=52, reopt_freq=2, leverage=1, asset_types='options'):
     """
     Inputs: list of assets, returns style, optimization style, optimmization window start date, optimization time range,
         filter type, expriry_range, re-optimization frequency, leverage
@@ -51,15 +52,17 @@ def run_model(asset_list, returns_style='calc', optimization_style='sharpe', opt
     myport = Portfolio()
 
     rets = 'calcreturns'
+    print(asset_types)
     for contract in asset_list:
         print(contract)
-        mT.get_one_option(contract, myport)
-        """   # only options baskets for now
-        if len(contract) > 12:
+        if asset_types == 'options':
             mT.get_one_option(contract, myport)
-        else:
-            mT.get_one_stock(contract)
-        """
+        elif asset_types == 'stocks':
+            mT.get_one_stock(contract, myport)
+        elif asset_types == 'mixed':
+            mT.get_one_option(contract, myport)
+            mT.get_one_stock(contract, myport)
+
     if optimization_style is 'sharpe':
         print('modeling')
         result_dict = myport.run(opt_window_start, opt_time_range,

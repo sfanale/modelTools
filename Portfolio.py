@@ -99,13 +99,17 @@ class Portfolio:
 
     def optimize(self, start_opt, end_expiry, end_opt, start_opt_non_var):
         # todo : read in selected assets not all
+        print('optimize')
         contracts = modelTools.contract_screen(self, start_opt, end_expiry)
         bad_contracts = []
         Rave = []
         Ri = []
         lenH = 0 # placeholder
         for i, stock in enumerate(contracts):
-            returns = get_returns_date_range(contracts[stock]['calcreturns'], start_opt, end_opt)[0]
+            if contracts[stock]['type'] is 'option':
+                returns = get_returns_date_range(contracts[stock]['calcreturns'], start_opt, end_opt)[0]
+            elif contracts[stock]['type'] is 'stock':
+                returns = get_returns_date_range(contracts[stock]['returns'], start_opt, end_opt)[0]
             if i == 0:
                 lenH = len(returns)
             if len(returns) == lenH:
@@ -151,8 +155,12 @@ class Portfolio:
             print(starting_value)
             # overwrite Ri with correct returns
             for stock in contracts:
-                Ri.append(get_returns_date_range(contracts[stock]['calcreturns'], start_run, end_run)[0])
-                dates = get_returns_date_range(contracts[stock]['calcreturns'], start_run, end_run)[1]
+                if contracts[stock]['type'] is 'option':
+                    Ri.append(get_returns_date_range(contracts[stock]['calcreturns'], start_run, end_run)[0])
+                    dates = get_returns_date_range(contracts[stock]['calcreturns'], start_run, end_run)[1]
+                elif contracts[stock]['type'] is 'stock':
+                    Ri.append(get_returns_date_range(contracts[stock]['returns'], start_run, end_run)[0])
+                    dates = get_returns_date_range(contracts[stock]['returns'], start_run, end_run)[1]
             daily_tot = []    # sum of daily value ( weights * return, multiple by invested amount to get true value)
             daily_values = []    # list of daily values, multiply by starting amount to get true value
             Ri = np.asarray(Ri).transpose()
@@ -170,7 +178,7 @@ class Portfolio:
                     print(Ri)
             total_returns = daily_tot[-1]
             starting_value = total_returns
-            result_dict.append({'start_date':start_run, 'dates': dates, 'total': total_returns, 'daily_tot': daily_tot,
+            result_dict.append({'start_date' :start_run, 'dates': dates, 'total': total_returns, 'daily_tot': daily_tot,
                                                            'daily_values': daily_values, 'weights': Rstar.tolist(),
                                                            'contracts': list(contracts.keys())})
             start_opt = start_opt + dt.timedelta(days=reopt_freq*7)

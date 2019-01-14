@@ -319,9 +319,13 @@ def contract_screen(myport, start_date, end_date):
     results = {}
     for contract_name in myport.holdings:
         contract = myport.holdings[contract_name]
-        dates = list(contract['info'].keys())
+        dates = list(contract['prices'].keys())
         dates.sort()
-        expiry = datetime.fromtimestamp(float(contract['info'][dates[0]]['expiry'])).date()
-        if dates[0] < start_date and expiry > end_date:
+        try:
+            expiry = datetime.fromtimestamp(float(contract['info'][dates[0]]['expiry'])).date()
+            if dates[0] < start_date and expiry > end_date:
+                results[contract_name] = contract
+        except KeyError:
+            print(contract_name)
             results[contract_name] = contract
     return results
