@@ -22,7 +22,8 @@ paths:
       parameters:
         - name: info
           in: path
-          description: something
+          description: tickers combined with '+' and then '&' seperated optimization range, expiry range, optimization
+            freq, basket type
           type: string
           required: True
       responses:
@@ -36,6 +37,28 @@ paths:
                   type: string
 
 
+  /model/buy/{input_string}:
+    get:
+      operationId: model_api.buy
+      tags:
+      - model
+      summary: Used to simply buy one or more contracts
+      description: Used to buy one or more contracts. Need list of contracts and buy date
+      parameters:
+      - name: input_string
+        in: path
+        description: tickers combined with '+' and then '&' followed by date in unix ny time
+        type: string
+        required: True
+      responses:
+        200:
+          description: success
+          schema:
+            type: array
+            items:
+              properties:
+                info:
+                  type: string
 
 
   /model/returns/{ticker}:

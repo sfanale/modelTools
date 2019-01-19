@@ -8,6 +8,7 @@ import requests
 from scipy import stats
 from scipy.optimize import curve_fit
 import statsmodels.formula.api as smf
+import pandas as pd
 from functools import reduce
 
 
@@ -329,3 +330,79 @@ def contract_screen(myport, start_date, end_date):
             print(contract_name)
             results[contract_name] = contract
     return results
+
+
+
+def getInfoBuildDf(ticker):
+    '''
+    This function gets the option chain for a stock,
+    puts it into a pandas dataframe, and calculates
+    daily returns for each option, calculated returns,
+    and days to expiration
+    NOTE: the first occurance of each option has a
+    return of NaN
+    '''
+
+    # This is the API url for options
+    options_url = 'http://data.fanaleresearch.com/api/options/'
+    stock_url = 'http://data.fanaleresearch.com/api/quotes/'
+    # Get the option chain for a stock (in json)
+    r_contracts = requests.get(options_url + 'all/' + str(ticker))
+    r_quote = requests.get(stock_url + str(ticker))
+    # Load the json into a dictionary and convert to a pandas dataframe
+    ticker_dict = json.loads(r_contracts.text)
+    ticker_df = pd.DataFrame(ticker_dict)
+
+    quote_dict = json.loads(r_quote.text)
+    quote_df = pd.DataFrame(quote_dict)
+
+    # Create calculated price and convert dates from UNIX time to datetime
+    ticker_df['calcprice'] = (ticker_df['ask'] + ticker_df['bid']) / 2
+    ticker_df['pricedate'] = ticker_df['pricedate'].astype('float').astype('int64').apply(datetime.fromtimestamp)
+    ticker_df['expiry'] = ticker_df['expiry'].astype('int64').apply(datetime.fromtimestamp)
+
+    quote_df['pricedate'] = quote_df['pricedate'].astype('float').astype('int64').apply(datetime.fromtimestamp)
+    quote_df['regulardate'] = quote_df['regulardate'].astype('float').astype('int64').apply(datetime.fromtimestamp)
+
+    # Calculate days to expiry
+    ticker_df['days_to_expiry'] = (ticker_df['expiry'] - ticker_df['pricedate']).dt.days
+    # Make sure the calc price is never 0 (if it use just use the last price)
+    ticker_df['calcprice'] = np.where(ticker_df['calcprice'] == 0, ticker_df['lastprice'], ticker_df['calcprice'])
+    # Sort by the date so the subsequent grouping is sorted too
+    ticker_sorted = ticker_df.sort_values('pricedate')
+    # Group by contract
+    ticker_grouped = ticker_sorted.groupby('contractsymbol')
+
+    # Create empty series for returns
+    ticker_returns = pd.Series()
+    ticker_calc_returns = pd.Series()
+    for contract in ticker_grouped.groups.keys():
+        ''' This for loop calculates the true returns and calculated returns and
+        then joins them to the dataframe
+        '''
+        sub_returns = (ticker_grouped.get_group(contract)['lastprice'].shift(1) -
+                       ticker_grouped.get_group(contract)['lastprice']) / ticker_grouped.get_group(contract)[
+                          'lastprice']
+        # print(returns.index)
+        sub_calc = (ticker_grouped.get_group(contract)['calcprice'].shift(1) - ticker_grouped.get_group(contract)[
+            'calcprice']) / ticker_grouped.get_group(contract)['calcprice']
+        ticker_returns = ticker_returns.append(sub_returns)
+        ticker_calc_returns = ticker_calc_returns.append(sub_calc)
+
+        # for each contract, regress to find alpha
+
+
+    ticker_returns.rename('returns', inplace=True)
+    ticker_calc_returns.rename('calc_returns', inplace=True)
+    ticker_joined = ticker_df.join(ticker_returns).join(ticker_calc_returns)
+
+    final_df = ticker_joined.merge(quote_df[['close', 'pricedate']], on='pricedate')
+    final_df['percent_In/Out'] = np.where(final_df['optiontype'] == 'call',
+                                        (final_df['close'] - final_df['strike']) / (
+                                                    (final_df['strike'])) * 100.0,
+                                        (final_df['strike'] - final_df['close']) / (
+                                                    (final_df['strike'])) * 100.0)
+
+    # A dataframe with the option chain information and the returns is the output
+    return (final_df)
+

@@ -3,8 +3,24 @@ import scipy.optimize as sp
 from functools import reduce
 from datetime import datetime
 import datetime as dt
+import pandas as pd
 
 import modelTools
+
+
+class Stock:
+    # this is a class for stocks
+    prices = {}
+    type = 'stock'
+
+    def __init__(self, ticker, price, pricedate ):
+        self.ticker = ticker
+        self.prices[datetime.fromtimestamp(float(pricedate)).date()] = price
+
+    def add(self, price, pricedate):
+        self.prices[datetime.fromtimestamp(float(pricedate)).date()] = price
+
+
 
 class Portfolio:
     # This will be a general portfolio class
@@ -12,6 +28,8 @@ class Portfolio:
 
     def __init__(self):
         self.holdings = {}
+        self.stocks = set ()
+        self.options = set ()
         self.rf = .5
         self.weights = []
 
@@ -150,14 +168,8 @@ class Portfolio:
         result_dict = []
         starting_value = 1
         while end_run < datetime.now().date():
-            print(start_opt)
-            print(end_opt)
-            print(end_expiry)
             Rstar, _, contracts = self.optimize(start_opt, end_expiry, end_opt, start_opt_non_var, start_run, end_run)
-            print(start_run)
-            print(end_run)
             Ri =[]
-            print(starting_value)
             # overwrite Ri with correct returns
             for stock in contracts:
                 if contracts[stock]['type'] is 'option':
@@ -192,6 +204,22 @@ class Portfolio:
             end_run = start_run + dt.timedelta(days=reopt_freq * 7)
             end_opt = start_opt + dt.timedelta(days=opt_time_range * 7)
         return result_dict
+
+
+    def buy_hold(self, start_date, end_date):
+        """
+        This is to used for running buy and hold positions with start and end dates.
+        :param start_date:
+        :param end_date:
+        :return:
+        """
+        result_dict = {}
+        for name in self.holdings:
+            price_init = self.holdings[name]['prices'][start_date]
+            price_final = self.holdings[name]['prices'][end_date]
+            result_dict[name] = price_final/price_init
+        return result_dict
+
 
 
 def sharpe_ratio(w,Ri, Rave, Rf):
